@@ -1,10 +1,15 @@
 /**
  * Thin fetch wrapper around the portfolio REST API.
  *
- * In development Vite proxies `/api` to the Express server (see vite.config.ts),
- * so no absolute URL is required. For split deployments set VITE_API_URL.
+ * API_BASE stays empty during local development, where Vite proxies `/api` and
+ * `/uploads` to the Express server (see vite.config.ts). For split deployments
+ * — Vercel frontend + hosted backend — set VITE_API_URL to the deployed API
+ * origin at build time:
+ *   VITE_API_URL=https://mariette-portfolio-api.onrender.com
  */
-const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+export const API_BASE = (import.meta.env.VITE_API_URL || "")
+  .trim()
+  .replace(/\/+$/, "");
 
 const TOKEN_KEY = "portfolio-admin-token";
 
@@ -29,9 +34,20 @@ export interface ApiResponse<T> {
  */
 export function resolveMediaUrl(url?: string | null): string {
   if (!url) return "";
-  if (/^https?:\/\//i.test(url)) return url;
-  if (url.startsWith("/uploads")) return API_BASE + url;
-  return url;
+  const value = String(url);
+
+  if (/^https?:\/\//i.test(value)) {
+    /* Records saved while running locally can point at localhost — swap the
+       origin for the deployed API so those images keep resolving in production. */
+    if (API_BASE && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(value)) {
+      return value.replace(/^https?:\/\/[^/]+/i, API_BASE);
+    }
+    return value;
+  }
+
+  /* Relative paths such as /uploads/… are served by the API origin. */
+  if (value.startsWith("/")) return API_BASE + value;
+  return value;
 }
 
 async function request<T>(
@@ -55,7 +71,11 @@ async function request<T>(
     });
   } catch {
     throw new Error(
-      "Cannot reach the server. Make sure the backend is running on port 4000 (npm run dev)."
+      API_BASE
+        ? "Cannot reach the API at " +
+            API_BASE +
+            ". Check that the backend is running and that CLIENT_ORIGIN allows this site."
+        : "Cannot reach the server. Make sure the backend is running on port 4000 (npm run dev)."
     );
   }
 

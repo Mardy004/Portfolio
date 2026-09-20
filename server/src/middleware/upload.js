@@ -4,16 +4,28 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.resolve(__dirname, "../../uploads");
+const DEFAULT_UPLOAD_DIR = path.resolve(__dirname, "../../uploads");
 
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+/**
+ * Directory where uploaded images are written (default: server/uploads).
+ *
+ * Set UPLOAD_DIR to a mounted persistent disk (e.g. /var/data/uploads) on hosts
+ * with an ephemeral filesystem, otherwise uploads disappear on every deploy.
+ * Resolved lazily so server/.env is already loaded when it is read.
+ */
+export function getUploadDir() {
+  const configured = (process.env.UPLOAD_DIR || "").trim();
+  const dir = configured ? path.resolve(configured) : DEFAULT_UPLOAD_DIR;
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
 }
 
 const allowed = /jpeg|jpg|png|webp|gif|svg/;
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+  destination: (_req, _file, cb) => cb(null, getUploadDir()),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     const unique =
@@ -35,4 +47,4 @@ export const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
 });
 
-export { UPLOAD_DIR };
+export { DEFAULT_UPLOAD_DIR };

@@ -30,8 +30,16 @@ let initialized = false;
 function loadServiceAccount() {
   const inline = (process.env.FIREBASE_SERVICE_ACCOUNT || "").trim();
   if (inline) {
-    const parsed = JSON.parse(inline);
-    return normalize(parsed);
+    try {
+      return normalize(JSON.parse(inline));
+    } catch (error) {
+      /* A malformed/truncated value must not disable Firestore: warn and keep
+         looking (key file next), instead of aborting the whole lookup. */
+      console.error(
+        "[firebase] FIREBASE_SERVICE_ACCOUNT is not valid JSON " +
+          `(${error.message}) — ignoring it and checking the key file.`
+      );
+    }
   }
 
   const filePath =
@@ -39,8 +47,14 @@ function loadServiceAccount() {
     DEFAULT_KEY_FILE;
 
   if (fs.existsSync(filePath)) {
-    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
-    return normalize(parsed);
+    try {
+      const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      return normalize(parsed);
+    } catch (error) {
+      console.error(
+        `[firebase] Could not read ${path.basename(filePath)}: ${error.message}`
+      );
+    }
   }
 
   return null;

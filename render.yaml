@@ -1,0 +1,58 @@
+# Render blueprint for the Express API (backend).
+#
+# Render dashboard → New → Blueprint → select this repository → Apply.
+# Every key marked `sync: false` is a secret you fill in the dashboard once.
+services:
+  - type: web
+    name: mariette-portfolio-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Signs admin sessions (Render generates a strong value).
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 12h
+      # Seeded on the first boot only.
+      - key: ADMIN_USERNAME
+        value: mariette250
+      - key: ADMIN_PASSWORD
+        sync: false
+      # The Vercel URL of the frontend. Comma-separated list + `*` wildcards
+      # are supported, e.g. "https://portfolio.vercel.app,https://*.vercel.app".
+      - key: CLIENT_ORIGIN
+        sync: false
+      # Paste the Firebase service-account JSON as ONE line to keep content
+      # between deploys. Leave empty to use the local JSON store.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: USE_LOCAL_STORE
+        value: "false"
+      # Optional: point these at a mounted persistent disk (paid plans) when
+      # using the local store / file uploads. See DEPLOYMENT.md.
+      # - key: DATA_DIR
+      #   value: /var/data
+      # - key: UPLOAD_DIR
+      #   value: /var/data/uploads
+      # Nodemailer (Gmail requires a 16-character App Password).
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_SECURE
+        value: "true"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_TO
+        value: ikiuzwemariette@gmail.com

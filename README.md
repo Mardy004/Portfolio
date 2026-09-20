@@ -94,8 +94,17 @@ npm run dev:frontend    # starts Vite on :5173
 Open http://localhost:4000/api/health — you should see:
 
 ```json
-{ "success": true, "message": "Portfolio API is running." }
+{
+  "success": true,
+  "message": "Portfolio API is running.",
+  "storage": "firestore",
+  "environment": "production",
+  "time": "2026-01-01T00:00:00.000Z"
+}
 ```
+
+`storage` reports the active engine (`firestore` or `local`) — handy for checking
+a deployed backend.
 
 ### 2. Test the public site
 
@@ -175,9 +184,57 @@ npm run start            # http://localhost:4000 serves the API + built site
 
 ---
 
-##  API Reference
+## 🌍 Deployment
 
-Base URL: `http://localhost:4000/api`
+Frontend and backend deploy independently: **Vercel** hosts the static React
+build, **Render** runs the Express API. Step-by-step walkthrough:
+**[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+
+```
+Vercel  →  frontend/  (https://<project>.vercel.app)   vercel.json
+Render  →  server/    (https://mariette-portfolio-api.onrender.com)   render.yaml
+```
+
+```bash
+# 1. Push the repo to GitHub (both hosts deploy from it)
+git push origin main
+
+# 2. Backend → Render: New → Blueprint → render.yaml
+#    root dir: server · build: npm install · start: npm start · health: /api/health
+
+# 3. Frontend → Vercel: import the repo (no Root Directory override needed)
+#    vercel.json builds frontend/dist, adds SPA rewrites + cache headers
+
+# 4. Point them at each other
+#    Vercel → Environment Variables: VITE_API_URL=https://mariette-portfolio-api.onrender.com
+#    Render → Environment Variables: CLIENT_ORIGIN=https://<project>.vercel.app,https://*.vercel.app
+```
+
+| Piece | Host | Config file | Required environment |
+| --- | --- | --- | --- |
+| React SPA (`frontend/`) | Vercel | `vercel.json` | `VITE_API_URL` |
+| Express API (`server/`) | Render · Railway · Docker (`server/Dockerfile`) | `render.yaml` | `CLIENT_ORIGIN`, `JWT_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `SMTP_*`, `MAIL_TO` |
+
+Deployment notes:
+
+- `PORT` and `HOST` are read from the environment, so the same code runs locally,
+  in a container and on any Node host.
+- `CLIENT_ORIGIN` accepts a comma-separated list and `*` wildcards, so preview
+  deployments and custom domains work without code changes.
+- Free hosts have an **ephemeral filesystem** — keep `FIREBASE_SERVICE_ACCOUNT`
+  set (content in Firestore), and mount a disk with `DATA_DIR` / `UPLOAD_DIR` if
+  you want uploaded images to persist.
+- `VITE_API_URL` is inlined at build time: redeploy Vercel after changing it.
+- Render's **free** instances block outbound SMTP ports (25/465/587), so the
+  Gmail settings need port `2525` + an API-based relay (SendGrid/Mailgun) or a
+  paid instance — see the warning in [DEPLOYMENT.md](./DEPLOYMENT.md#1-deploy-the-api-express-to-render).
+
+---
+
+## 📚 API Reference
+
+Base URL: `http://localhost:4000/api` locally, `https://<your-api-host>/api` in
+production (the SPA prefixes `VITE_API_URL` automatically).
 
 | Method | Endpoint | Auth | Description |
 | --- | --- | --- | --- |

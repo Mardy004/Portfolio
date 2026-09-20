@@ -3,8 +3,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.resolve(__dirname, "../../data");
-const DB_FILE = path.join(DATA_DIR, "db.json");
+const DEFAULT_DATA_DIR = path.resolve(__dirname, "../../data");
+
+/**
+ * Directory holding the local JSON store (default: server/data).
+ *
+ * Resolved lazily so server/.env is already loaded, and so the location can be
+ * pointed at a mounted persistent disk (DATA_DIR) on hosts where the default
+ * filesystem is ephemeral — otherwise data is lost on every redeploy/restart.
+ */
+function dataDir() {
+  const configured = (process.env.DATA_DIR || "").trim();
+  return configured ? path.resolve(configured) : DEFAULT_DATA_DIR;
+}
+
+function dbFile() {
+  return path.join(dataDir(), "db.json");
+}
 
 /**
  * Two storage engines are supported:
@@ -30,18 +45,19 @@ export function getEngine() {
 /* ------------------------------------------------------------------ */
 
 function ensureDataFile() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  const dir = dataDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({}, null, 2), "utf8");
+  if (!fs.existsSync(dbFile())) {
+    fs.writeFileSync(dbFile(), JSON.stringify({}, null, 2), "utf8");
   }
 }
 
 function readLocalDb() {
   ensureDataFile();
   try {
-    return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+    return JSON.parse(fs.readFileSync(dbFile(), "utf8"));
   } catch {
     return {};
   }
@@ -49,7 +65,7 @@ function readLocalDb() {
 
 function writeLocalDb(db) {
   ensureDataFile();
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2), "utf8");
+  fs.writeFileSync(dbFile(), JSON.stringify(db, null, 2), "utf8");
 }
 
 function uid() {

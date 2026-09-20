@@ -25,18 +25,59 @@ import uploadRoutes from "./routes/uploads.js";
 import contactRoutes from "./routes/contact.js";
 import messageRoutes from "./routes/messages.js";
 import { getMailerStatus, initMailer } from "./utils/mailer.js";
+import { getUploadDir } from "./middleware/upload.js";
+import { getEngine } from "./config/store.js";
 
-const UPLOAD_DIR = path.resolve(__dirname, "../uploads");
+const UPLOAD_DIR = getUploadDir();
 const CLIENT_DIST = path.resolve(__dirname, "../../frontend/dist");
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 
+/* Bind to every interface by default so container hosts (Render, Railway,
+   Fly, Docker) can reach the app. PORT is injected by those platforms. */
+const HOST = process.env.HOST || "0.0.0.0";
+
+/**
+ * Browser origins allowed to call this API.
+ *
+ * CLIENT_ORIGIN accepts a comma-separated list, so the deployed frontend and
+ * local development can both be allowed at the same time:
+ *   CLIENT_ORIGIN=https://portfolio.vercel.app,https://www.example.com
+ *
+ * A `*` wildcard is supported for preview deployments:
+ *   CLIENT_ORIGIN=https://*.vercel.app
+ */
+const ALLOWED_ORIGINS = [
+  ...CLIENT_ORIGIN.split(","),
+  "http://localhost:5173",
+  "http://localhost:4173",
+  "http://127.0.0.1:5173",
+]
+  .map((value) => value.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
+function isAllowedOrigin(origin) {
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  return ALLOWED_ORIGINS.some((allowed) => {
+    if (!allowed.includes("*")) return false;
+    const pattern = allowed
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, "[^.]*");
+    return new RegExp("^" + pattern + "$").test(origin);
+  });
+}
+
 /* ----------------------------- middleware ----------------------------- */
 app.use(
   cors({
-    origin: [CLIENT_ORIGIN, "http://localhost:5173", "http://localhost:4173"],
+    origin(origin, callback) {
+      /* Same-origin calls, curl and uptime/health checks send no Origin. */
+      if (!origin || isAllowedOrigin(origin)) return callback(null, true);
+      console.warn("[cors] Blocked origin:", origin);
+      return callback(null, false);
+    },
     credentials: true,
   })
 );
@@ -51,6 +92,8 @@ app.get("/api/health", (_req, res) => {
   res.json({
     success: true,
     message: "Portfolio API is running.",
+    storage: getEngine(),
+    environment: process.env.NODE_ENV || "development",
     time: new Date().toISOString(),
   });
 });
@@ -108,11 +151,20 @@ async function start() {
   initMailer();
   await seedDatabase();
 
-  app.listen(PORT, () => {
+  if (engine === "local" && process.env.NODE_ENV === "production") {
+    console.warn(
+      "[storage] WARNING: production is using the local JSON store. On hosts " +
+        "with an ephemeral filesystem, content resets on every deploy — set " +
+        "FIREBASE_SERVICE_ACCOUNT or point DATA_DIR at a persistent disk."
+    );
+  }
+
+  app.listen(PORT, HOST, () => {
     console.log("-----------------------------------------------");
-    console.log(`  Portfolio API listening on port ${PORT}`);
+    console.log(`  Portfolio API listening on ${HOST}:${PORT}`);
     console.log(`  Storage engine : ${engine}`);
-    console.log(`  CORS origin    : ${CLIENT_ORIGIN}`);
+    console.log(`  Allowed origins: ${ALLOWED_ORIGINS.join(", ")}`);
+    console.log(`  Uploads dir    : ${UPLOAD_DIR}`);
     console.log(`  Admin login    : POST /api/auth/login`);
     console.log("-----------------------------------------------");
   });

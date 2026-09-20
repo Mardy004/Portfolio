@@ -5,6 +5,9 @@
   "type": "module",
   "description": "Express + Firebase backend for the portfolio (projects, skills, experience, profile, messages, auth).",
   "main": "dist/index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
