@@ -108,14 +108,6 @@ export default function Login() {
           </button>
         </form>
 
-        {/* <p className="login__hint">
-          Default credentials:
-          <br />
-          user: mariette250
-          <br />
-          pass: PortoMariettte2026
-        </p> */}
-
         <Link to="/" className="login__back">
           ← Back to portfolio
         </Link>
