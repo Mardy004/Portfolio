@@ -1,0 +1,145 @@
+.timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-left: 2rem;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 19px;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    var(--accent),
+    var(--accent-2),
+    transparent
+  );
+}
+
+.timeline__item {
+  position: relative;
+}
+
+.timeline__marker {
+  position: absolute;
+  left: -2rem;
+  top: 1.4rem;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 1.05rem;
+  z-index: 1;
+  box-shadow: var(--shadow);
+}
+
+.timeline__card {
+  padding: 1.6rem;
+}
+
+.timeline__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: 0.5rem;
+}
+
+.timeline__card h3 {
+  font-size: var(--fs-xl);
+}
+
+.timeline__company {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+
+.timeline__period {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  white-space: nowrap;
+}
+
+.timeline__period--current {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--gradient-soft);
+}
+
+.timeline__location {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  margin-bottom: 0.75rem;
+}
+
+.timeline__desc {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  margin-bottom: 0.75rem;
+}
+
+.timeline__highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.timeline__highlights li {
+  position: relative;
+  padding-left: 1.3rem;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.timeline__highlights li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gradient);
+}
+
+.experience__empty {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+@media (max-width: 600px) {
+  .timeline {
+    padding-left: 1.5rem;
+  }
+  .timeline__marker {
+    left: -1.5rem;
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+  .timeline::before {
+    left: 14px;
+  }
+}

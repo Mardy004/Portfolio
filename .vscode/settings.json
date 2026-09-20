@@ -1,0 +1,82 @@
+{
+  "json.schemaDownload.enable": false,
+  "json.schemas": [
+    {
+      "fileMatch": ["/package.json", "**/package.json", "package.json"],
+      "schema": {
+        "title": "package.json",
+        "description": "Offline package.json schema (covers the fields used in this workspace).",
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "name": { "type": "string", "description": "Package name." },
+          "version": { "type": "string", "description": "Semantic version, e.g. 1.0.0." },
+          "private": { "type": "boolean", "description": "true prevents accidental publishing." },
+          "description": { "type": "string" },
+          "type": { "type": "string", "enum": ["commonjs", "module"], "description": "\"module\" enables ES modules." },
+          "main": { "type": "string" },
+          "module": { "type": "string" },
+          "types": { "type": "string" },
+          "typings": { "type": "string" },
+          "license": { "type": "string" },
+          "author": { "type": ["string", "object"] },
+          "contributors": { "type": "array" },
+          "homepage": { "type": "string" },
+          "repository": { "type": ["string", "object"] },
+          "bugs": { "type": ["string", "object"] },
+          "keywords": { "type": "array", "items": { "type": "string" } },
+          "files": { "type": "array", "items": { "type": "string" } },
+          "workspaces": {
+            "description": "npm workspaces, e.g. [\"server\", \"frontend\"].",
+            "oneOf": [
+              { "type": "array", "items": { "type": "string" } },
+              {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "packages": { "type": "array", "items": { "type": "string" } },
+                  "nohoist": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            ]
+          },
+          "engines": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "e.g. { \"node\": \">=20\" }."
+          },
+          "scripts": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "Commands run with npm run <name>."
+          },
+          "dependencies": { "$ref": "#/definitions/dependencies" },
+          "devDependencies": { "$ref": "#/definitions/dependencies" },
+          "peerDependencies": { "$ref": "#/definitions/dependencies" },
+          "optionalDependencies": { "$ref": "#/definitions/dependencies" },
+          "bundledDependencies": { "type": ["array", "boolean"] },
+          "overrides": { "type": "object", "additionalProperties": true },
+          "resolutions": { "type": "object", "additionalProperties": true },
+          "packageManager": { "type": "string" },
+          "publishConfig": { "type": "object", "additionalProperties": true },
+          "config": { "type": "object", "additionalProperties": true },
+          "exports": { "type": ["object", "string"] },
+          "imports": { "type": "object", "additionalProperties": true },
+          "bin": { "type": ["string", "object"] },
+          "browser": { "type": ["string", "object"] },
+          "os": { "type": "array", "items": { "type": "string" } },
+          "cpu": { "type": "array", "items": { "type": "string" } },
+          "funding": { "type": ["string", "object", "array"] },
+          "sideEffects": { "type": ["boolean", "array"] }
+        },
+        "definitions": {
+          "dependencies": {
+            "type": "object",
+            "description": "Maps package names to version ranges.",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}
