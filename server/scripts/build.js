@@ -3,8 +3,8 @@
  *
  * The server is plain ESM JavaScript, so there is nothing to transpile.
  * This script:
- *   1. Recursively imports every source module (src/ + the Vercel function in
- *      api/) to catch syntax/import errors before a deploy.
+ *   1. Recursively imports every source module to catch syntax/import errors
+ *      before a deploy (the listen() entrypoint is syntax-checked instead).
  *   2. Copies server/ into server/dist (excluding node_modules, dist, data, uploads).
  */
 import fs from "node:fs";
@@ -15,7 +15,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT, "src");
-const API = path.join(ROOT, "api");
 const DIST = path.join(ROOT, "dist");
 const SERVER_ENTRY = path.join(SRC, "index.js");
 
@@ -45,7 +44,7 @@ function copyDir(from, to) {
 }
 
 async function run() {
-  const files = [...walk(SRC), ...(fs.existsSync(API) ? walk(API) : [])];
+  const files = walk(SRC);
   console.log(`[build] Checking ${files.length} server modules...`);
 
   let failures = 0;

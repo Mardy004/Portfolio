@@ -127,12 +127,24 @@ app.use("/api/uploads", uploadRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/messages", messageRoutes);
 
-/* Serve the built frontend when it ships next to the API (single-deploy mode
-   on Render / a VPS / Docker: `npm run build` + `npm start`). */
+/* Serve the built frontend when it ships next to the API (single-deploy mode on
+   Render / a VPS / Docker: `npm run build` + `npm start`). When the API runs on
+   its own — e.g. as a Vercel function — the root URL answers with a small
+   status payload instead of a bare 404. */
 if (fs.existsSync(CLIENT_DIST)) {
   app.use(express.static(CLIENT_DIST));
   app.get(/^(?!\/api|\/uploads).*/, (_req, res) => {
     res.sendFile(path.join(CLIENT_DIST, "index.html"));
+  });
+} else {
+  app.get("/", (_req, res) => {
+    res.json({
+      success: true,
+      service: "Portfolio API",
+      health: "/api/health",
+      mail: "/api/contact/status",
+      message: "API only — the portfolio site is deployed separately.",
+    });
   });
 }
 

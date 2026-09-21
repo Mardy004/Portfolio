@@ -28,10 +28,9 @@ Everything needed is already committed:
 | File | Purpose |
 | --- | --- |
 | `frontend/vercel.json` | Frontend project: Vite build → `dist`, SPA rewrites, cache/security headers |
-| `server/vercel.json` | API project: sends every request to the serverless function in `api/index.js` |
-| `server/api/index.js` | Vercel entrypoint — delegates to the shared Express app |
+| `server/vercel.json` | API project: pins the workspace `installCommand` only (Vercel's Express pipeline supplies build + output) |
+| `server/src/index.js` | Express entrypoint: `listen()` for local/Render/Docker, auto-detected as the Vercel function |
 | `server/src/app.js` | The Express app itself (CORS, middleware, routes, `/api/health`) |
-| `server/src/index.js` | `listen()` entrypoint for local dev, Render, Docker, a VPS |
 | `render.yaml` | Render blueprint for the API service (topology A) |
 | `server/Dockerfile` | Container image for Render / Railway / Fly / Cloud Run / VPS |
 | `frontend/src/api/client.ts` | Reads `VITE_API_URL` so the SPA calls the deployed API |
@@ -111,33 +110,32 @@ automatically, so do not set it.
 
 ### Option C — Vercel (serverless function, topology B)
 
-The Express app is exported by `server/api/index.js`, which Vercel runs as a
-Node.js function; `server/vercel.json` rewrites every request to it, so the URL
-layout (`/api/...`, `/uploads/...`) stays identical to the Render deployment.
+Vercel ships **zero-configuration Express support**: it locates the file that
+exports your app (or starts it with `listen()`) and turns it into a Node.js
+function. In this project that file is `server/src/index.js`, which is one of the
+documented detection locations (`app` / `index` / `server` at the project root or
+under `src/`). Every request — `/api/...` and `/uploads/...` alike — is then
+handled by the same Express app, so no rewrites are needed.
 
 1. Vercel → **Add New… → Project** → import the same repository (project name
    `mariette-portfolio-api` → `https://mariette-portfolio-api.vercel.app`).
-2. **Root Directory** → `server`. This is **required**: without it Vercel builds
-   the repository root, finds no function and reports a missing output directory.
-3. Framework Preset: **Other** — `server/vercel.json` pins the build/output
-   settings:
+2. **Root Directory** → `server`.
+3. **Leave Build Command and Output Directory EMPTY.** Delete any override you
+   added under *Settings → Build & Development Settings* — that override is what
+   produces `No entrypoint found in output directory: "…"`, because Vercel then
+   searches that folder for a server entrypoint instead of your project.
+
+   `server/vercel.json` deliberately contains a single line:
 
    ```json
    {
-     "installCommand": "cd .. && npm install",
-     "buildCommand": "npm run build",
-     "outputDirectory": "public",
-     "rewrites": [
-       { "source": "/", "destination": "/api/index" },
-       { "source": "/:path*", "destination": "/api/index/:path*" }
-     ]
+     "installCommand": "cd .. && npm install"
    }
    ```
 
-   `npm run build` runs `server/scripts/build.js`, which import-checks every
-   module (including `api/index.js`) so a broken deploy fails at build time.
-   Visiting the project root serves `server/public/index.html`, a small status
-   page linking to `/api/health`.
+   The install command runs at the repository root so npm resolves this workspace
+   and installs the hoisted dependencies. No `buildCommand` and no
+   `outputDirectory` — Vercel's Express pipeline supplies those itself.
 4. **Environment Variables** (Production *and* Preview):
 
    | Name | Value |
@@ -178,8 +176,8 @@ npx vercel dev --listen 3000     # emulates the function + rewrites locally
 curl http://localhost:3000/api/health
 ```
 
-That reproduces exactly how Vercel routes requests to `api/index.js` before you
-spend a deployment on it.
+That reproduces how Vercel turns `server/src/index.js` into a function and routes
+requests to it, before you spend a deployment on it.
 
 ### Verify the API
 
@@ -404,7 +402,8 @@ Use that server URL as `CLIENT_ORIGIN`, and build the frontend **without**
 | Vercel build fails with `tsc: not found` | Dependencies were installed without devDependencies — keep the default `installCommand: npm install` |
 | `No Output Directory named "dist" found after the Build completed` | The project's Root Directory and `outputDirectory` disagree. With Root Directory `frontend`, `outputDirectory` must be `dist` (see `frontend/vercel.json`) — never `frontend/dist` |
 | `Cannot find module 'express'` while building the API project | The API project's Root Directory is not `server`, so the workspace install never ran — set Root Directory `server` and keep `installCommand: "cd .. && npm install"` |
-| API project deploys, but every path returns 404 | `server/api/index.js` is missing from the commit, or the rewrite in `server/vercel.json` was removed — both are required |
+| API project deploys, but `/api/health` returns 404 | The Express entrypoint was not detected: Root Directory must be `server` and `server/src/index.js` must keep its `app.listen(...)` call / `export default app` |
+| `No entrypoint found in output directory: "…"` (API project) | An **Output Directory** override is set (dashboard *or* `vercel.json`). Vercel's Express pipeline then searches that folder for `app`/`index`/`server.{js}` — clear the override so it searches the project root and finds `server/src/index.js` |
 | `413 Request Entity Too Large` when uploading an image | Vercel caps request bodies at 4.5 MB; keep `UPLOAD_MAX_MB=4` (or host the API on Render/a VPS) |
 | Deployed API reports `storage: local` on `/api/health` | `FIREBASE_SERVICE_ACCOUNT` is unset or invalid. On Vercel the "local" store is a temp file that dies with the instance |
 | Browser still calls `localhost:5173/api/...` | `VITE_API_URL` was added after the frontend build — redeploy Vercel with *Use existing Build Cache* unchecked |

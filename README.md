@@ -193,7 +193,7 @@ walkthrough in **[DEPLOYMENT.md](./DEPLOYMENT.md)**:
 A)  Vercel → frontend/  (https://mariette-portfolio.vercel.app)      frontend/vercel.json
     Render → server/    (https://mariette-portfolio-api.onrender.com) render.yaml
 B)  Vercel → frontend/  (https://mariette-portfolio.vercel.app)      frontend/vercel.json
-    Vercel → server/    (https://mariette-portfolio-api.vercel.app)   server/vercel.json + server/api/index.js
+    Vercel → server/    (https://mariette-portfolio-api.vercel.app)   server/vercel.json + server/src/index.js
 ```
 
 ```bash
@@ -223,7 +223,9 @@ Deployment notes:
   its own `vercel.json` inside that directory; `outputDirectory` is relative to
   the Root Directory (`dist` for the frontend).
 - `PORT` and `HOST` are read from the environment, so the same code runs locally,
-  in a container, on Render and as a Vercel function (`server/api/index.js`).
+  in a container, on Render and as a Vercel function (Vercel auto-detects
+  `server/src/index.js` as the Express entrypoint — leave its Build Command and
+  Output Directory empty).
 - `CLIENT_ORIGIN` accepts a comma-separated list and `*` wildcards, so preview
   deployments and custom domains work without code changes.
 - Hosts with an **ephemeral/read-only filesystem** fall back to a temp directory
