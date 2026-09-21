@@ -1,25 +1,56 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_DATA_DIR = path.resolve(__dirname, "../../data");
 
+/* Last-resort location for read-only filesystems (Vercel Functions). */
+const FALLBACK_DATA_DIR = path.join(os.tmpdir(), "portfolio-data");
+
+let resolvedDataDir = null;
+
 /**
- * Directory holding the local JSON store (default: server/data).
+ * Directory holding the local JSON store.
  *
- * Resolved lazily so server/.env is already loaded, and so the location can be
- * pointed at a mounted persistent disk (DATA_DIR) on hosts where the default
- * filesystem is ephemeral — otherwise data is lost on every redeploy/restart.
+ * Priority: DATA_DIR → server/data → a temp directory when the filesystem is
+ * read-only (e.g. serverless functions). Resolved lazily so server/.env is
+ * already loaded, then cached for the life of the process.
  */
 function dataDir() {
+  if (resolvedDataDir) return resolvedDataDir;
+
   const configured = (process.env.DATA_DIR || "").trim();
-  return configured ? path.resolve(configured) : DEFAULT_DATA_DIR;
+  const preferred = configured ? path.resolve(configured) : DEFAULT_DATA_DIR;
+
+  resolvedDataDir = canWrite(preferred) ? preferred : FALLBACK_DATA_DIR;
+
+  if (resolvedDataDir !== preferred) {
+    console.warn(
+      `[store] ${preferred} is not writable — using ${FALLBACK_DATA_DIR}. ` +
+        "Content stored there is lost when the process is recycled; set " +
+        "FIREBASE_SERVICE_ACCOUNT (or DATA_DIR on a persistent disk) to keep it."
+    );
+  }
+
+  return resolvedDataDir;
+}
+
+function canWrite(dir) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.accessSync(dir, fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function dbFile() {
   return path.join(dataDir(), "db.json");
 }
+
 
 /**
  * Two storage engines are supported:

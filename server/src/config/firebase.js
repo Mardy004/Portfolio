@@ -32,12 +32,14 @@ function loadServiceAccount() {
   if (inline) {
     try {
       return normalize(JSON.parse(inline));
-    } catch (error) {
+    } catch {
       /* A malformed/truncated value must not disable Firestore: warn and keep
-         looking (key file next), instead of aborting the whole lookup. */
+         looking (key file next), instead of aborting the whole lookup.
+         The parse error is deliberately NOT logged — JSON.parse echoes the
+         start of its input, which here is key material. */
       console.error(
         "[firebase] FIREBASE_SERVICE_ACCOUNT is not valid JSON " +
-          `(${error.message}) — ignoring it and checking the key file.`
+          `(${inline.length} characters) — ignoring it and checking the key file.`
       );
     }
   }
@@ -50,9 +52,10 @@ function loadServiceAccount() {
     try {
       const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
       return normalize(parsed);
-    } catch (error) {
+    } catch {
+      /* Same reasoning as above: never echo key material into the logs. */
       console.error(
-        `[firebase] Could not read ${path.basename(filePath)}: ${error.message}`
+        `[firebase] Could not parse ${path.basename(filePath)} — ignoring it.`
       );
     }
   }

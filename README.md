@@ -186,48 +186,54 @@ npm run start            # http://localhost:4000 serves the API + built site
 
 ## 🌍 Deployment
 
-Frontend and backend deploy independently: **Vercel** hosts the static React
-build, **Render** runs the Express API. Step-by-step walkthrough:
-**[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+Frontend and backend deploy independently. Two supported topologies — full
+walkthrough in **[DEPLOYMENT.md](./DEPLOYMENT.md)**:
 
 ```
-Vercel  →  frontend/  (https://<project>.vercel.app)   vercel.json
-Render  →  server/    (https://mariette-portfolio-api.onrender.com)   render.yaml
+A)  Vercel → frontend/  (https://mariette-portfolio.vercel.app)      frontend/vercel.json
+    Render → server/    (https://mariette-portfolio-api.onrender.com) render.yaml
+B)  Vercel → frontend/  (https://mariette-portfolio.vercel.app)      frontend/vercel.json
+    Vercel → server/    (https://mariette-portfolio-api.vercel.app)   server/vercel.json + server/api/index.js
 ```
 
 ```bash
-# 1. Push the repo to GitHub (both hosts deploy from it)
+# 1. Push the repo to GitHub (every host deploys from it)
 git push origin main
 
-# 2. Backend → Render: New → Blueprint → render.yaml
+# 2. API → Render:  New → Blueprint → render.yaml
 #    root dir: server · build: npm install · start: npm start · health: /api/health
+#    API → Vercel (topology B): New → Project → Root Directory = server
 
-# 3. Frontend → Vercel: import the repo (no Root Directory override needed)
-#    vercel.json builds frontend/dist, adds SPA rewrites + cache headers
+# 3. Frontend → Vercel: New → Project → Root Directory = frontend
+#    frontend/vercel.json builds dist/ and adds the SPA rewrite + cache headers
 
 # 4. Point them at each other
-#    Vercel → Environment Variables: VITE_API_URL=https://mariette-portfolio-api.onrender.com
-#    Render → Environment Variables: CLIENT_ORIGIN=https://<project>.vercel.app,https://*.vercel.app
+#    Vercel  → Environment Variables: VITE_API_URL=https://<api-host>
+#    API host → Environment Variables: CLIENT_ORIGIN=https://mariette-portfolio.vercel.app,https://*.vercel.app
 ```
 
-| Piece | Host | Config file | Required environment |
+| Piece | Host | Config | Required environment |
 | --- | --- | --- | --- |
-| React SPA (`frontend/`) | Vercel | `vercel.json` | `VITE_API_URL` |
-| Express API (`server/`) | Render · Railway · Docker (`server/Dockerfile`) | `render.yaml` | `CLIENT_ORIGIN`, `JWT_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `SMTP_*`, `MAIL_TO` |
+| React SPA (`frontend/`) | Vercel (**Root Directory `frontend`**) | `frontend/vercel.json` | `VITE_API_URL` |
+| Express API (`server/`) | Render (blueprint) · Vercel (Root Directory `server`) · Railway · Docker | `render.yaml` / `server/vercel.json` | `CLIENT_ORIGIN`, `JWT_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `SMTP_*`, `MAIL_TO` |
 
 Deployment notes:
 
+- Each Vercel project needs its **own Root Directory** (`frontend` / `server`) and
+  its own `vercel.json` inside that directory; `outputDirectory` is relative to
+  the Root Directory (`dist` for the frontend).
 - `PORT` and `HOST` are read from the environment, so the same code runs locally,
-  in a container and on any Node host.
+  in a container, on Render and as a Vercel function (`server/api/index.js`).
 - `CLIENT_ORIGIN` accepts a comma-separated list and `*` wildcards, so preview
   deployments and custom domains work without code changes.
-- Free hosts have an **ephemeral filesystem** — keep `FIREBASE_SERVICE_ACCOUNT`
-  set (content in Firestore), and mount a disk with `DATA_DIR` / `UPLOAD_DIR` if
-  you want uploaded images to persist.
+- Hosts with an **ephemeral/read-only filesystem** fall back to a temp directory
+  for `DATA_DIR`/`UPLOAD_DIR` automatically — keep `FIREBASE_SERVICE_ACCOUNT` set
+  so content lives in Firestore, and mount a disk if uploads must persist.
 - `VITE_API_URL` is inlined at build time: redeploy Vercel after changing it.
-- Render's **free** instances block outbound SMTP ports (25/465/587), so the
-  Gmail settings need port `2525` + an API-based relay (SendGrid/Mailgun) or a
-  paid instance — see the warning in [DEPLOYMENT.md](./DEPLOYMENT.md#1-deploy-the-api-express-to-render).
+- SMTP: Vercel Functions can send mail with the Gmail settings as-is, but Render's
+  **free** instances block ports 25/465/587 — use a relay on port `2525`
+  (SendGrid/Mailgun) or a paid instance; see
+  [DEPLOYMENT.md](./DEPLOYMENT.md#1-deploy-the-api-express).
 
 ---
 

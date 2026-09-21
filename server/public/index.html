@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Portfolio API</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0b1120;
+        color: #e2e8f0;
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main {
+        max-width: 34rem;
+        padding: 2.5rem;
+        border: 1px solid #1e293b;
+        border-radius: 16px;
+        background: #0f172a;
+        box-shadow: 0 24px 60px rgba(2, 6, 23, 0.6);
+      }
+      h1 {
+        margin: 0 0 0.25rem;
+        font-size: 1.5rem;
+      }
+      p {
+        margin: 0 0 1.25rem;
+        color: #94a3b8;
+        line-height: 1.6;
+      }
+      code {
+        background: #1e293b;
+        border-radius: 6px;
+        padding: 0.15rem 0.4rem;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 0.85em;
+      }
+      ul {
+        margin: 0;
+        padding-left: 1.1rem;
+        line-height: 2;
+      }
+      a {
+        color: #22d3ee;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Portfolio API</h1>
+      <p>
+        Express backend for the portfolio. This deployment serves JSON only —
+        the site itself is a separate frontend deployment.
+      </p>
+      <ul>
+        <li><a href="/api/health">GET /api/health</a> — status + storage engine</li>
+        <li>
+          <a href="/api/contact/status">GET /api/contact/status</a> — email
+          (SMTP) configuration
+        </li>
+        <li><code>POST /api/auth/login</code> — admin session</li>
+      </ul>
+    </main>
+  </body>
+</html>

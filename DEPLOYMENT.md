@@ -1,30 +1,48 @@
 # 🚀 Deployment Guide
 
-How to run this portfolio in production:
+Two supported topologies — pick one:
+
+- **A. Vercel (frontend) + Render (API)** — the API is a long-lived Express
+  process, so uploaded images can live on a mounted disk and nothing is capped by
+  serverless limits. Best when you use the admin media library.
+- **B. Vercel (frontend) + Vercel (API)** — **two projects from the same
+  repository**, both on Vercel. The Express app runs as a serverless function:
+  zero idle cost, but the function filesystem is read-only and ephemeral, so
+  content must live in Firestore (see
+  [Serverless caveats](#7-serverless-caveats-vercel-api)).
 
 ```
-┌──────────────────────────┐        ┌────────────────────────────┐
-│  Vercel (static build)   │ HTTPS  │  Render (Express API)      │
-│  frontend/ → React SPA   │ ─────▶ │  server/ → /api, /uploads  │
-│  https://app.vercel.app  │        │  https://api.onrender.com  │
-└──────────────────────────┘        └────────────┬───────────────┘
-                                                 │
-                                    Firestore (content) + SMTP (email)
+A:  ┌──────────────────────────┐  HTTPS   ┌────────────────────────────┐
+    │ Vercel: frontend/        │ ───────▶ │ Render: server/            │
+    │ https://x.vercel.app     │          │ https://x.onrender.com     │
+    └──────────────────────────┘          └────────────┬───────────────┘
+B:  ┌──────────────────────────┐  HTTPS   ┌────────────────────────────┐
+    │ Vercel: frontend/        │ ───────▶ │ Vercel: server/ (function) │
+    │ https://x.vercel.app     │          │ https://x-api.vercel.app   │
+    └──────────────────────────┘          └────────────┬───────────────┘
+                                          Firestore + SMTP (both options)
 ```
-
-The frontend is a static bundle, so it belongs on Vercel. The API is a
-long-running Express process (JWT auth, Nodemailer, Multer uploads, Firestore),
-so it needs a Node host such as **Render** (steps below), Railway or Fly.io.
 
 Everything needed is already committed:
 
 | File | Purpose |
 | --- | --- |
-| `vercel.json` | Vercel build (`npm run build:frontend` → `frontend/dist`) + SPA rewrites + caching headers |
-| `render.yaml` | Render blueprint for the API service |
-| `server/Dockerfile` | Container image for Render/Railway/Fly/Cloud Run/VPS |
-| `server/src/index.js` | Reads `PORT`/`HOST`, lets the Vercel origin through CORS, serves `/api/health` |
+| `frontend/vercel.json` | Frontend project: Vite build → `dist`, SPA rewrites, cache/security headers |
+| `server/vercel.json` | API project: sends every request to the serverless function in `api/index.js` |
+| `server/api/index.js` | Vercel entrypoint — delegates to the shared Express app |
+| `server/src/app.js` | The Express app itself (CORS, middleware, routes, `/api/health`) |
+| `server/src/index.js` | `listen()` entrypoint for local dev, Render, Docker, a VPS |
+| `render.yaml` | Render blueprint for the API service (topology A) |
+| `server/Dockerfile` | Container image for Render / Railway / Fly / Cloud Run / VPS |
 | `frontend/src/api/client.ts` | Reads `VITE_API_URL` so the SPA calls the deployed API |
+
+> ⚠️ On Vercel the **output directory is relative to the project's Root
+> Directory**. With Root Directory `frontend`, `outputDirectory` must be `dist`
+> (never `frontend/dist`) — that mismatch is what produces
+> `No Output Directory named "dist" found after the Build completed`.
+> Each project must also have its **own** `vercel.json` *inside* its Root
+> Directory; a file at the repository root is ignored by both projects.
+
 
 ---
 
@@ -57,9 +75,11 @@ Everything needed is already committed:
 
 ---
 
-## 1. Deploy the API (Express) to Render
+## 1. Deploy the API (Express)
 
-### Option A — Blueprint (recommended, uses `render.yaml`)
+Pick **one** of the three options below.
+
+### Option A — Render blueprint (recommended, uses `render.yaml`)
 
 1. Go to <https://dashboard.render.com> → **New** → **Blueprint**.
 2. Connect the GitHub repository and click **Apply**. Render creates
@@ -72,7 +92,7 @@ Everything needed is already committed:
 4. Wait for the first deploy to finish, then note the URL —
    `https://mariette-portfolio-api.onrender.com` (or your chosen service name).
 
-### Option B — Manual web service
+### Option B — Render manual web service
 
 **New** → **Web Service** → connect the repo, then:
 
@@ -88,6 +108,78 @@ Everything needed is already committed:
 Add the environment variables from
 [the reference](#-environment-variable-reference) — `PORT` is injected by Render
 automatically, so do not set it.
+
+### Option C — Vercel (serverless function, topology B)
+
+The Express app is exported by `server/api/index.js`, which Vercel runs as a
+Node.js function; `server/vercel.json` rewrites every request to it, so the URL
+layout (`/api/...`, `/uploads/...`) stays identical to the Render deployment.
+
+1. Vercel → **Add New… → Project** → import the same repository (project name
+   `mariette-portfolio-api` → `https://mariette-portfolio-api.vercel.app`).
+2. **Root Directory** → `server`. This is **required**: without it Vercel builds
+   the repository root, finds no function and reports a missing output directory.
+3. Framework Preset: **Other** — `server/vercel.json` pins the build/output
+   settings:
+
+   ```json
+   {
+     "installCommand": "cd .. && npm install",
+     "buildCommand": "npm run build",
+     "outputDirectory": "public",
+     "rewrites": [
+       { "source": "/", "destination": "/api/index" },
+       { "source": "/:path*", "destination": "/api/index/:path*" }
+     ]
+   }
+   ```
+
+   `npm run build` runs `server/scripts/build.js`, which import-checks every
+   module (including `api/index.js`) so a broken deploy fails at build time.
+   Visiting the project root serves `server/public/index.html`, a small status
+   page linking to `/api/health`.
+4. **Environment Variables** (Production *and* Preview):
+
+   | Name | Value |
+   | --- | --- |
+   | `NODE_ENV` | `production` |
+   | `JWT_SECRET` | a long random string |
+   | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | your admin login (seeded on first boot only) |
+   | `CLIENT_ORIGIN` | `https://<frontend>.vercel.app,https://*.vercel.app` |
+   | `FIREBASE_SERVICE_ACCOUNT` | the service-account JSON on **one line** — required on Vercel, the function filesystem is read-only |
+   | `SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURE`/`SMTP_USER`/`SMTP_PASS`/`MAIL_TO` | your mail settings |
+
+   Single-line key (also see [Serverless caveats](#6-serverless-caveats-vercel-api)):
+
+   ```powershell
+   node -e "console.log(JSON.stringify(require('./server/firebase-service-account.json')))"
+   ```
+
+5. Deploy, then verify:
+
+   ```powershell
+   Invoke-RestMethod https://mariette-portfolio-api.vercel.app/api/health
+   # storage: firestore   ← "local" means FIREBASE_SERVICE_ACCOUNT is missing/damaged
+   Invoke-RestMethod https://mariette-portfolio-api.vercel.app/api/contact/status
+   ```
+
+6. Copy the project URL into the frontend project as `VITE_API_URL` (step 3 of
+   [section 2](#2-deploy-the-frontend-to-vercel)) and redeploy the frontend.
+
+Unlike Render's free plan, **Vercel Functions can send SMTP**, so the existing
+Gmail settings (`smtp.gmail.com:465`) work unchanged.
+
+Optional pre-flight before pushing: install the Vercel CLI once (`npm i -g vercel`),
+run `vercel link` inside `server/`, then:
+
+```bash
+cd server
+npx vercel dev --listen 3000     # emulates the function + rewrites locally
+curl http://localhost:3000/api/health
+```
+
+That reproduces exactly how Vercel routes requests to `api/index.js` before you
+spend a deployment on it.
 
 ### Verify the API
 
@@ -125,25 +217,29 @@ If the log instead says `using local JSON store` (or prints the
 
 ## 2. Deploy the frontend to Vercel
 
-1. Go to <https://vercel.com/new> and import the same GitHub repository.
-2. Leave **Root Directory** at the repository root and do **not** override the
-   Build/Output settings — `vercel.json` already defines them:
+1. Vercel → **Add New… → Project** → import the repository. Name the project
+   `mariette-portfolio` → `https://mariette-portfolio.vercel.app`.
+2. **Root Directory** → `frontend` (click *Edit* next to the setting).
+   This is mandatory: `frontend/vercel.json` is only read from inside the Root
+   Directory, and every path in it is resolved relative to that directory.
+3. Framework Preset → **Vite** (pinned in `frontend/vercel.json`), which defines:
 
    ```json
    {
-     "installCommand": "npm install",
-     "buildCommand": "npm run build:frontend",
-     "outputDirectory": "frontend/dist",
+     "framework": "vite",
+     "installCommand": "cd .. && npm install",
+     "buildCommand": "npm run build",
+     "outputDirectory": "dist",
      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
    }
    ```
 
-   The rewrite is what makes deep links such as `/admin` work in a React Router
-   SPA (refresh-safe, no 404).
-
-   *Alternative:* set Root Directory to `frontend` and pick the Vercel **Vite**
-   preset (Build `npm run build`, Output `dist`) — then delete the root
-   `vercel.json` so the two configurations cannot conflict.
+   - `installCommand` runs at the repository root so npm resolves this workspace
+     and installs the hoisted dependencies (`vite`, `typescript`, …).
+   - `outputDirectory: "dist"` is relative to `frontend/`; the build writes
+     `frontend/dist`.
+   - The rewrite is what makes deep links such as `/admin` work in a React
+     Router SPA (refresh-safe, no 404).
 
 3. **Settings → Environment Variables** → add:
 
@@ -230,7 +326,25 @@ So:
 
 ---
 
-## 6. Custom domains
+## 6. Serverless caveats (Vercel API)
+
+Running the API as a Vercel Function (topology B) trades a few things away. The
+code copes with all of them, but data behaves differently:
+
+| Area | On Vercel Functions | Consequence |
+| --- | --- | --- |
+| Filesystem | Read-only except `/tmp` | `DATA_DIR` / `UPLOAD_DIR` fall back to a temp dir automatically (the log shows `… is not writable — using …`). **Always set `FIREBASE_SERVICE_ACCOUNT`**, or content resets whenever the function recycles |
+| Uploaded images | `/tmp` only | Images added in the admin media library vanish after a cold start. Use external image URLs, or run the API on Render/a VPS (topology A) with a mounted disk |
+| Request body | 4.5 MB platform cap | `UPLOAD_MAX_MB=4` is the default; bigger uploads are rejected with 413 before Express sees them |
+| Process lifetime | Instances sleep, cold start ≈ 1 s | First request after idle is slower — fine for a portfolio |
+| Boot work | No long-lived process | Firestore, SMTP and seeding run once per instance via `server/src/init.js`, before the first data request |
+| SMTP | Allowed | The Gmail settings work as-is (Render's free plan blocks ports 25/465/587) |
+| Background jobs | Not supported | Not needed — email sending is awaited inside the request |
+
+The URL layout is identical to the Render deployment:
+`https://<api-project>.vercel.app/api/health`, `…/api/projects`, `…/uploads/<file>`.
+
+## 7. Custom domains
 
 1. Vercel → Project → **Domains** → add `www.example.com` and follow the DNS
    instructions.
@@ -240,7 +354,7 @@ So:
 
 ---
 
-## 7. Alternative hosts
+## 8. Alternative hosts
 
 **Railway / Heroku-style platforms**
 
@@ -276,7 +390,7 @@ Use that server URL as `CLIENT_ORIGIN`, and build the frontend **without**
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Cause / fix |
 | --- | --- |
@@ -288,7 +402,13 @@ Use that server URL as `CLIENT_ORIGIN`, and build the frontend **without**
 | Contact form reports "email delivery failed" | Wrong SMTP credentials: use a Gmail **App Password**, `SMTP_PORT=465`, `SMTP_SECURE=true`; inspect `GET /api/contact/status` and the Render logs |
 | Contact form still fails on Render **free** (`Connection timeout`, `ECONNREFUSED`) | Render free blocks SMTP ports 25/465/587 → switch to a relay on **port 2525** (`SMTP_PORT=2525`, `SMTP_SECURE=false`) or upgrade the instance type; see the warning in [step 1](#1-deploy-the-api-express-to-render) |
 | Vercel build fails with `tsc: not found` | Dependencies were installed without devDependencies — keep the default `installCommand: npm install` |
-| First request after idle is slow | Render free instances sleep; upgrade the plan or ping `/api/health` periodically |
+| `No Output Directory named "dist" found after the Build completed` | The project's Root Directory and `outputDirectory` disagree. With Root Directory `frontend`, `outputDirectory` must be `dist` (see `frontend/vercel.json`) — never `frontend/dist` |
+| `Cannot find module 'express'` while building the API project | The API project's Root Directory is not `server`, so the workspace install never ran — set Root Directory `server` and keep `installCommand: "cd .. && npm install"` |
+| API project deploys, but every path returns 404 | `server/api/index.js` is missing from the commit, or the rewrite in `server/vercel.json` was removed — both are required |
+| `413 Request Entity Too Large` when uploading an image | Vercel caps request bodies at 4.5 MB; keep `UPLOAD_MAX_MB=4` (or host the API on Render/a VPS) |
+| Deployed API reports `storage: local` on `/api/health` | `FIREBASE_SERVICE_ACCOUNT` is unset or invalid. On Vercel the "local" store is a temp file that dies with the instance |
+| Browser still calls `localhost:5173/api/...` | `VITE_API_URL` was added after the frontend build — redeploy Vercel with *Use existing Build Cache* unchecked |
+| First request after idle is slow | Free Render instances sleep (upgrade or ping `/api/health`); Vercel functions cold-start in ~1 s |
 
 ---
 
@@ -315,8 +435,9 @@ Use that server URL as `CLIENT_ORIGIN`, and build the frontend **without**
 | `FIREBASE_SERVICE_ACCOUNT` | ✅ | service-account JSON | Keeps content between deploys |
 | `FIREBASE_SERVICE_ACCOUNT_FILE` | – | `/etc/secrets/key.json` | Alternative to the inline JSON |
 | `USE_LOCAL_STORE` | – | `false` | Force the local JSON store |
-| `DATA_DIR` | – | `/var/data` | Persistent disk location for `db.json` |
-| `UPLOAD_DIR` | – | `/var/data/uploads` | Persistent disk location for images |
+| `DATA_DIR` | – | `/var/data` | Persistent disk location for `db.json` (falls back to temp on read-only hosts) |
+| `UPLOAD_DIR` | – | `/var/data/uploads` | Persistent disk location for images (falls back to temp on read-only hosts) |
+| `UPLOAD_MAX_MB` | – | `4` | Max image size; keep ≤ 4 on Vercel (4.5 MB request cap) |
 | `SMTP_HOST` | ✅ | `smtp.gmail.com` | Nodemailer transport |
 | `SMTP_PORT` | ✅ | `465` | Render **free** blocks 465/587 — use `2525` with an API-based relay (SendGrid/Mailgun) |
 | `SMTP_SECURE` | ✅ | `true` | |
