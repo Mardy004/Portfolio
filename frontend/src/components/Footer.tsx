@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import {
   FiArrowUp,
   FiDownload,
@@ -9,6 +8,7 @@ import {
   FiPhone,
   FiTwitter,
 } from "react-icons/fi";
+// import { FaRegHeart } from "react-icons/fa";
 import type { Profile } from "../api/types";
 import "./Footer.css";
 
@@ -154,11 +154,7 @@ export default function Footer({ profile }: { profile: Profile | null }) {
                   </a>
                 </li>
               )}
-              <li>
-                <Link className="footer__link" to="/admin">
-                  Admin portal
-                </Link>
-              </li>
+              
             </ul>
           </nav>
         </div>
@@ -192,7 +188,7 @@ export default function Footer({ profile }: { profile: Profile | null }) {
           </p>
 
           <strong className="footer__made">
-            {name} {year} <span aria-hidden="true">💜</span>
+            {name} {year} 
           </strong>
 
           <button

@@ -30,7 +30,7 @@ export default function About({ profile }: { profile: Profile | null }) {
     <section className="section about" id="about">
       <div className="container">
         <div className="section-head reveal">
-          <span className="eyebrow">About me</span>
+          {/* <span className="eyebrow">About me</span> */}
           <h2 className="section-title">
             Turning ideas into <span className="gradient-text">interfaces</span>
           </h2>

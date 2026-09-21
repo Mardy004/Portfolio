@@ -88,10 +88,7 @@ export default function Navbar() {
     }
   }
 
-  function goToAdmin() {
-    setOpen(false);
-    navigate("/admin");
-  }
+  
 
   return (
     <header className={`nav${scrolled ? " nav--scrolled" : ""}`}>
@@ -132,13 +129,7 @@ export default function Navbar() {
 
         {/* Admin — right of links */}
         <div className="nav__side nav__side--right">
-          <button
-            type="button"
-            className="nav__admin"
-            onClick={goToAdmin}
-          >
-            Admin
-          </button>
+          
           <button
             className="nav__burger"
             onClick={() => setOpen((o) => !o)}

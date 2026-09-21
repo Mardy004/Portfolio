@@ -20,7 +20,7 @@ export default function Experience({
     <section className="section experience" id="experience">
       <div className="container">
         <div className="section-head reveal">
-          <span className="eyebrow">Career</span>
+          {/* <span className="eyebrow">Career</span> */}
           <h2 className="section-title">
             My <span className="gradient-text">experience</span>
           </h2>

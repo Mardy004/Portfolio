@@ -67,7 +67,7 @@ export default function Projects({ projects }: { projects: Project[] }) {
     <section className="section projects" id="projects">
       <div className="container">
         <div className="section-head reveal">
-          <span className="eyebrow">Portfolio</span>
+          {/* <span className="eyebrow">Portfolio</span> */}
           <h2 className="section-title">
             Featured <span className="gradient-text">projects</span>
           </h2>

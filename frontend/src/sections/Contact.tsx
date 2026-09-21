@@ -72,7 +72,7 @@ export default function Contact({ profile }: { profile: Profile | null }) {
     <section className="section contact" id="contact">
       <div className="container">
         <div className="section-head reveal">
-          <span className="eyebrow">Contact</span>
+          {/* <span className="eyebrow">Contact</span> */}
           <h2 className="section-title">
             Let's work <span className="gradient-text">together</span>
           </h2>

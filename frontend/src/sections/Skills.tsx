@@ -18,7 +18,7 @@ export default function Skills({ skills }: { skills: Skill[] }) {
     <section className="section skills" id="skills">
       <div className="container">
         <div className="section-head reveal">
-          <span className="eyebrow">Skills</span>
+          {/* <span className="eyebrow">Skills</span> */}
           <h2 className="section-title">
             My <span className="gradient-text">toolbox</span>
           </h2>
